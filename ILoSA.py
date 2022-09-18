@@ -67,7 +67,6 @@ class ILoSA(Panda):
             else:
                 self.nullspace_traj=np.concatenate((self.nullspace_traj,self.recorded_traj ), axis=1)
                 self.nullspace_joints=np.concatenate((self.nullspace_joints,self.recorded_joint ), axis=1)
-
             print("Demo Saved")
         else:
             print("Demo Discarded")
@@ -79,16 +78,18 @@ class ILoSA(Panda):
         save_demo = input("Do you want to keep this demonstration? [y/n] \n")
         if save_demo.lower()=='y':
             if len(self.training_traj)==0:
+                # Initialize the components with zero vector
                 self.training_traj=np.zeros((3,1))
                 self.training_delta=np.zeros((3,1))
                 self.training_dK=np.zeros((3,1))
+                # Append the components with respective recorded components
                 self.training_traj=np.concatenate((self.training_traj,self.recorded_traj ), axis=1)
                 self.training_delta=np.concatenate((self.training_delta,resample(self.recorded_traj, step=2)), axis=1)
                 self.training_dK=np.concatenate((self.training_dK,np.zeros(np.shape(self.recorded_traj))), axis=1)
+                # Delete the initial zero-vector components from the final components
                 self.training_traj=np.delete(self.training_traj, 0,1)
                 self.training_delta=np.delete(self.training_delta,0,1)
                 self.training_dK=np.delete(self.training_dK,0,1)
-
             else:
                 self.training_traj=np.concatenate((self.training_traj,self.recorded_traj ), axis=1)
                 self.training_delta=np.concatenate((self.training_delta,resample(self.recorded_traj, step=2)), axis=1)
@@ -125,19 +126,24 @@ class ILoSA(Panda):
         self.training_dK=self.training_dK
 
     def Train_GPs(self):
+        # Learning Delta with GPs
         if len(self.training_traj)>0 and len(self.training_delta)>0:
             print("Training of Delta")
+            # Constant kernel C
             kernel = C(constant_value = 0.01, constant_value_bounds=[0.0005, self.attractor_lim]) * RBF(length_scale=[0.1, 0.1, 0.1], length_scale_bounds=[0.025, 0.1]) + WhiteKernel(0.00025, [0.0001, 0.0005]) 
             self.Delta=InteractiveGP(X=self.training_traj, Y=self.training_delta, y_lim=[-self.attractor_lim, self.attractor_lim], kernel=kernel, n_restarts_optimizer=20)
             self.Delta.fit()
+            # Save the model
             with open('models/delta.pkl','wb') as delta:
                 pickle.dump(self.Delta,delta)
-
         else:
             raise TypeError("There are no data for learning a trajectory dynamical system")
+
+        # TODO: Why are we saving the model here?
         with open('models/delta.pkl','wb') as delta:
             pickle.dump(self.Delta,delta)
-
+        
+        # Training of Stiffness with GPs
         if len(self.training_traj)>0 and len(self.training_dK)>0:
             print("Training of Stiffness")
             self.Stiffness=InteractiveGP(X=self.training_traj, Y=self.training_dK, y_lim=[self.K_min, self.K_max], kernel=self.Delta.kernel_, n_restarts_optimizer=0) 
@@ -147,6 +153,7 @@ class ILoSA(Panda):
         else:
             raise TypeError("There are no data for learning a stiffness dynamical system")
 
+        # TODO: Training of Nullspace
         if len(self.nullspace_traj)>0 and len(self.nullspace_joints)>0:
             print("Training of Nullspace")
             kernel = C(constant_value = 0.1, constant_value_bounds=[0.0005, self.attractor_lim]) * RBF(length_scale=[0.1, 0.1, 0.1], length_scale_bounds=[0.025, 0.1]) + WhiteKernel(0.00025, [0.0001, 0.0005]) 
@@ -155,7 +162,8 @@ class ILoSA(Panda):
             with open('models/nullspace.pkl','wb') as nullspace:
                 pickle.dump(self.NullSpaceControl,nullspace)
         else: 
-            print('No Null Space Control Policy Learned')    
+            print('No Null Space Control Policy Learned')
+
     def save_models(self):
         with open('models/delta.pkl','wb') as delta:
             pickle.dump(self.Delta,delta)
@@ -164,6 +172,7 @@ class ILoSA(Panda):
         if self.NullSpaceControl:
             with open('models/nullspace.pkl','wb') as nullspace:
                 pickle.dump(self.NullSpaceControl,nullspace)
+
     def load_models(self):
         try:
             with open('models/delta.pkl', 'rb') as delta:
@@ -180,6 +189,7 @@ class ILoSA(Panda):
                 self.NullSpace = pickle.load(nullspace)
         except:
             print("No NullSpace model saved")
+            
     def find_alpha(self):
         alpha=np.zeros(len(self.Delta.X))
         for i in range(len(self.Delta.X)):         
@@ -195,8 +205,8 @@ class ILoSA(Panda):
         self.end=False
         while not self.end:
             # read the actual position of the robot
-
             cart_pos=np.array(self.cart_pos).reshape(1,-1)
+            
             # GP predictions Delta_x
             [self.delta, self.sigma]=self.Delta.predict(cart_pos)
 

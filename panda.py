@@ -61,6 +61,8 @@ class Panda():
         self.right_btn = data.buttons[1]
 
     def connect_ROS(self):
+        """Create a ros node, subscribers and publishers.
+        """
         rospy.init_node('ILoSA', anonymous=True)
         r=rospy.Rate(self.control_freq)
 
@@ -99,9 +101,7 @@ class Panda():
         joint_des=Float32MultiArray()
         joint_des.data= np.array(joint).astype(np.float32)
         self.configuration_pub.publish(joint_des)
-
-
-        
+     
     def go_to_3d(self,goal_):
         start = self.cart_pos
         r=rospy.Rate(self.control_freq)
@@ -116,7 +116,7 @@ class Panda():
         z = np.linspace(start[2], goal_[2], step_num)
         
         position=[x[0],y[0],z[0]]
-        orientation=[1,0,0,0]
+        orientation=[1,0,0,0]   # TODO: Hard-coded orientation, might need to change for our use-case
         self.set_attractor(position, orientation)
 
         pos_stiff=[self.K_cart, self.K_cart, self.K_cart]
@@ -152,9 +152,9 @@ class Panda():
             self.recorded_joint = np.c_[self.recorded_joint, self.joint_pos]
             r.sleep()
             
-
+    # TODO: Is this setting the stiffness of the end-effector
     def Passive(self):
         pos_stiff=[0.0,0.0,0.0]
-        rot_stiff=[self.K_ori , self.K_ori , self.K_ori ] 
+        rot_stiff=[self.K_ori , self.K_ori , self.K_ori] 
         null_stiff=[0.0]
         self.set_stiffness(pos_stiff, rot_stiff, null_stiff)
