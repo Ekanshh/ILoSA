@@ -39,6 +39,8 @@ class Panda():
     def ee_pose_callback(self, data):
         self.cart_pos = [data.pose.position.x, data.pose.position.y, data.pose.position.z]
         self.cart_ori = [data.pose.orientation.x, data.pose.orientation.y, data.pose.orientation.z, data.pose.orientation.w]
+        print(f"End-effector pose: {self.cart_pos}\n")
+        print(f"End-effector orientation: {self.cart_ori}\n")
 
     # joint angle subscriber
     def joint_callback(self, data):
