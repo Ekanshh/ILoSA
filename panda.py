@@ -127,7 +127,7 @@ class Panda():
         # send attractors to controller
         for i in range(step_num):
             position=[x[i],y[i],z[i]]
-            orientation=[1,0,0,0]
+            orientation=[1,0,0,0]   # TODO: Hard-coded orientation, might need to change for our use-case
             self.set_attractor(position,orientation)
             r.sleep()
 

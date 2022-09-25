@@ -246,7 +246,7 @@ class ILoSA(Panda):
             y_new = cart_pos[0][1] + self.delta[1]  
             z_new = cart_pos[0][2] + self.delta[2]  
 
-            quat_goal=[1,0,0,0]
+            quat_goal=[1,0,0,0]     # TODO: Hard-coded orientation, might need to change for our use-case
 
             pos_goal=[x_new, y_new, z_new]
             self.set_attractor(pos_goal,quat_goal)
