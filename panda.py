@@ -39,8 +39,8 @@ class Panda():
     def ee_pose_callback(self, data):
         self.cart_pos = [data.pose.position.x, data.pose.position.y, data.pose.position.z]
         self.cart_ori = [data.pose.orientation.x, data.pose.orientation.y, data.pose.orientation.z, data.pose.orientation.w]
-        print(f"End-effector pose: {self.cart_pos}\n")
-        print(f"End-effector orientation: {self.cart_ori}\n")
+        # print(f"End-effector pose: {self.cart_pos}\n")
+        # print(f"End-effector orientation: {self.cart_ori}\n")
 
     # joint angle subscriber
     def joint_callback(self, data):
@@ -118,7 +118,7 @@ class Panda():
         z = np.linspace(start[2], goal_[2], step_num)
         
         position=[x[0],y[0],z[0]]
-        orientation=[1,0,0,0]   # TODO: Hard-coded orientation, might need to change for our use-case
+        orientation=[0.48,0.66,0.33,0.45]   # TODO: Hard-coded orientation, might need to change for our use-case
         self.set_attractor(position, orientation)
 
         pos_stiff=[self.K_cart, self.K_cart, self.K_cart]
@@ -129,7 +129,7 @@ class Panda():
         # send attractors to controller
         for i in range(step_num):
             position=[x[i],y[i],z[i]]
-            orientation=[1,0,0,0]   # TODO: Hard-coded orientation, might need to change for our use-case
+            orientation=[0.48,0.66,0.33,0.45]   # TODO: Hard-coded orientation, might need to change for our use-case
             self.set_attractor(position,orientation)
             r.sleep()
 
