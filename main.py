@@ -43,4 +43,4 @@ if __name__ == '__main__':
 #%% 
     time.sleep(1)
     print("Interactive Control Starting")
-    ILoSA.Interactive_Control(verboose=False)
+    ILoSA.Interactive_Control(verboose=True)

@@ -96,6 +96,7 @@ class Panda():
         goal.pose.orientation.y = quat[1]
         goal.pose.orientation.z = quat[2]
         goal.pose.orientation.w = quat[3]
+        # print(f"Goal pose orientation: {goal.pose.orientation}")
 
         self.goal_pub.publish(goal)
 
@@ -118,7 +119,7 @@ class Panda():
         z = np.linspace(start[2], goal_[2], step_num)
         
         position=[x[0],y[0],z[0]]
-        orientation=[0.48,0.66,0.33,0.45]   # TODO: Hard-coded orientation, might need to change for our use-case
+        orientation=[0.7879862288302211, -0.014406506029148421, 0.6154430517307886, -0.009756583802840979]   # TODO: Hard-coded orientation, might need to change for our use-case
         self.set_attractor(position, orientation)
 
         pos_stiff=[self.K_cart, self.K_cart, self.K_cart]
@@ -129,7 +130,7 @@ class Panda():
         # send attractors to controller
         for i in range(step_num):
             position=[x[i],y[i],z[i]]
-            orientation=[0.48,0.66,0.33,0.45]   # TODO: Hard-coded orientation, might need to change for our use-case
+            orientation=[0.7879862288302211, -0.014406506029148421, 0.6154430517307886, -0.009756583802840979]   # TODO: Hard-coded orientation, might need to change for our use-case
             self.set_attractor(position,orientation)
             r.sleep()
 
