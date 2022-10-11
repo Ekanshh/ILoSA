@@ -34,13 +34,20 @@ if __name__ == '__main__':
 #%% 
     time.sleep(1)
     print("Train the Gaussian Process Models")
-    ILoSA.Train_GPs()
-#%%  
+    ILoSA.Train_GPs() 
     time.sleep(1)
-    print("Reset to the starting cartesian position")
-    ILoSA.go_to_3d(ILoSA.training_traj[:, 0])
-
-#%% 
-    time.sleep(1)
-    print("Interactive Control Starting")
-    ILoSA.Interactive_Control(verboose=False)
+    while True:
+     try:
+        print("Reset to the starting cartesian position")
+        ILoSA.go_to_3d(ILoSA.training_traj[:, 0])
+        time.sleep(1)
+        print("Interactive Control Starting")
+        ILoSA.Interactive_Control(verboose=True)
+        time.sleep(1)
+        print("Reset to the starting cartesian position")
+        ILoSA.go_to_3d(ILoSA.training_traj[:, 0])
+        time.sleep(1)
+     except KeyboardInterrupt:
+         break
+    
+    

@@ -31,6 +31,10 @@ class Panda():
         self.listener = Listener(on_press=self._on_press)
         self.listener.start()
 
+        # Store initial orientation
+        self.initial_orientation = []
+        self.is_initial_orientation_found = False
+
     def _on_press(self, key):
         # This function runs on the background and checks if a keyboard key was pressed
         if key == KeyCode.from_char('e'):
@@ -39,8 +43,13 @@ class Panda():
     def ee_pose_callback(self, data):
         self.cart_pos = [data.pose.position.x, data.pose.position.y, data.pose.position.z]
         self.cart_ori = [data.pose.orientation.x, data.pose.orientation.y, data.pose.orientation.z, data.pose.orientation.w]
-        # print(f"End-effector pose: {self.cart_pos}\n")
-        # print(f"End-effector orientation: {self.cart_ori}\n")
+        
+        if self.is_initial_orientation_found != True:
+            self.initial_orientation = self.cart_ori
+            rospy.loginfo(f"Initial orientation: {self.initial_orientation}\n")
+            self.is_initial_orientation_found = True
+        else:
+            pass
 
     # joint angle subscriber
     def joint_callback(self, data):
@@ -118,7 +127,7 @@ class Panda():
         z = np.linspace(start[2], goal_[2], step_num)
         
         position=[x[0],y[0],z[0]]
-        orientation=[0.48,0.66,0.33,0.45]   # TODO: Hard-coded orientation, might need to change for our use-case
+        orientation=self.initial_orientation  # TODO: Hard-coded orientation, might need to change for our use-case
         self.set_attractor(position, orientation)
 
         pos_stiff=[self.K_cart, self.K_cart, self.K_cart]
@@ -129,7 +138,7 @@ class Panda():
         # send attractors to controller
         for i in range(step_num):
             position=[x[i],y[i],z[i]]
-            orientation=[0.48,0.66,0.33,0.45]   # TODO: Hard-coded orientation, might need to change for our use-case
+            orientation=self.initial_orientation  # TODO: Hard-coded orientation, might need to change for our use-case
             self.set_attractor(position,orientation)
             r.sleep()
 

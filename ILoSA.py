@@ -198,7 +198,7 @@ class ILoSA(Panda):
             alpha[i]=self.max_grad_force/ np.sqrt(dSigma_dx**2+dSigma_dy**2+dSigma_dz**2)
             self.alpha=np.min(alpha)
 
-    def Interactive_Control(self, verboose=False):
+    def Interactive_Control(self, verboose=True):
         r=rospy.Rate(self.control_freq)
         self.find_alpha()
         print("Press e to stop.")
@@ -246,7 +246,8 @@ class ILoSA(Panda):
             y_new = cart_pos[0][1] + self.delta[1]  
             z_new = cart_pos[0][2] + self.delta[2]  
 
-            quat_goal=[0.48,0.66,0.33,0.45]     # TODO: Hard-coded orientation, might need to change for our use-case
+            quat_goal=self.initial_orientation    # TODO: Hard-coded orientation, might need to change for our use-case
+            # print(f"quat goal: {quat_goal}")
 
             pos_goal=[x_new, y_new, z_new]
             self.set_attractor(pos_goal,quat_goal)
@@ -275,4 +276,4 @@ class ILoSA(Panda):
                 print("Scaling_factor_cartesian:" + str(self.scaling_factor))
                 print("Scaling_factor_nullspace:" + str(self.scaling_factor_ns))   
             r.sleep()
-
+    
