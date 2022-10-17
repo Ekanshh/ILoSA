@@ -27,6 +27,10 @@ class Panda():
         self.start = True
         self.end = False
 
+        # RnD: 
+        # variable to store goal pos
+        self.goal_pos = np.zeros((3,))
+
         # Start keyboard listener
         self.listener = Listener(on_press=self._on_press)
         self.listener.start()
@@ -39,7 +43,31 @@ class Panda():
         # This function runs on the background and checks if a keyboard key was pressed
         if key == KeyCode.from_char('e'):
             self.end = True
-
+    
+    def check_goal_reached(self, 
+                            goal_pos=None, 
+                            current_pos=None, 
+                            threshold=0.05) -> bool:
+        """Check if the goal position is reached."""
+        if goal_pos is None:
+            goal_pos = self.goal_pos
+        else: 
+            goal_pos = goal_pos
+        
+        if current_pos is None:
+            current_pos = self.cart_pos
+        else:
+            current_pos = current_pos
+        
+        
+        distance = np.linalg.norm(np.array(goal_pos) - np.array(current_pos))
+        
+        if distance < threshold:
+            rospy.loginfo(f"Goal reached. Difference between current pos and goal pos: {distance}\n")
+            return True
+        else:
+            return False     
+        
     def ee_pose_callback(self, data):
         self.cart_pos = [data.pose.position.x, data.pose.position.y, data.pose.position.z]
         self.cart_ori = [data.pose.orientation.x, data.pose.orientation.y, data.pose.orientation.z, data.pose.orientation.w]
@@ -62,9 +90,8 @@ class Panda():
 
 
     # spacemouse joystick subscriber
-    def teleop_callback(self, data):
-        self.feedback = [data.x, data.y, data.z]
-
+    def teleop_callback(self, data):        
+        self.feedback = [data.x / 5, data.y / 5, data.z / 5]      # RnD: Decrease the resolution of user feedback by 5 times to decrease sensitivity
 
     # spacemouse buttons subscriber
     def btns_callback(self, data):
@@ -162,6 +189,13 @@ class Panda():
             self.recorded_traj = np.c_[self.recorded_traj, self.cart_pos]
             self.recorded_joint = np.c_[self.recorded_joint, self.joint_pos]
             r.sleep()
+        
+        if self.end:
+            rospy.loginfo("[Panda][kinesthetic_demonstration] Recording stopped.")
+            self.goal_pos = self.cart_pos
+            rospy.loginfo(f"[Panda][kinesthetic_demonstration] Saving final goal pos: {self.goal_pos}")
+            self.end = False
+
             
     # TODO: Is this setting the stiffness of the end-effector
     def Passive(self):

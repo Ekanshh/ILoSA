@@ -139,7 +139,6 @@ class ILoSA(Panda):
         else:
             raise TypeError("There are no data for learning a trajectory dynamical system")
 
-        # TODO: Why are we saving the model here?
         with open('models/delta.pkl','wb') as delta:
             pickle.dump(self.Delta,delta)
         
@@ -191,6 +190,7 @@ class ILoSA(Panda):
             print("No NullSpace model saved")
             
     def find_alpha(self):
+        rospy.loginfo(f"[ILoSA][find_alpha] Finding alpha..")
         alpha=np.zeros(len(self.Delta.X))
         for i in range(len(self.Delta.X)):         
             pos= self.Delta.X[i,:]+self.Delta.length_scales 
@@ -199,14 +199,45 @@ class ILoSA(Panda):
             self.alpha=np.min(alpha)
 
     def Interactive_Control(self, verboose=True):
+        rospy.loginfo(f"[ILoSA][interactive_control] Starting interactive control..")
+        # Initialize rospy rate
         r=rospy.Rate(self.control_freq)
+        # Get alpha
         self.find_alpha()
-        print("Press e to stop.")
-        self.end=False
-        while not self.end:
+        # Counter to repeate the interactive control loop
+        counter = 0 
+        counter_threshold = 5
+
+        while True:
+            
+            # Monitor goal position reached
+            is_goal_reached = self.check_goal_reached(threshold=0.05)
+
+            # If goal has reached, stop the robot
+            
+            if is_goal_reached and counter <= counter_threshold:
+                rospy.loginfo("[ILoSA][interactive_control] Goal position reached. Restarting Interactive control demonstrations.")
+                rospy.sleep(2.0)
+                print("[ILoSA][interactive_control] Reset to the starting cartesian position.")
+                self.go_to_3d(self.training_traj[:, 0])
+                rospy.sleep(1.0)
+                counter += 1
+            elif is_goal_reached and counter > counter_threshold:
+                rospy.loginfo(f"[ILoSA][interactive_control] Goal position reached and counter is at maximum!")
+                rospy.sleep(2.0)
+                print("[ILoSA][interactive_control] Reset to the starting cartesian position.")
+                self.go_to_3d(self.training_traj[:, 0])
+                rospy.loginfo(f"[ILoSA][interactive_control] Stopping interactive control demonstrations.")
+                rospy.sleep(1.0)
+                break
+            else:
+                rospy.loginfo(f"[ILoSA][interactive_control] Trying to reach goal position .. ")
+                pass
+                
+            
             # read the actual position of the robot
             cart_pos=np.array(self.cart_pos).reshape(1,-1)
-            
+
             # GP predictions Delta_x
             [self.delta, self.sigma]=self.Delta.predict(cart_pos)
 
@@ -225,18 +256,18 @@ class ILoSA(Panda):
 
             
             if any(abs(np.array(self.feedback)) > 0.05): # Check for joystick feedback 
-
-                print("Received Feedback")
+                
+                rospy.loginfo(f"[ILoSA][interactive_control] Received user feedback")
+                # print(self.feedback)
                 delta_inc, dK_inc = Interpret_3D(feedback=self.feedback, delta=self.delta, K=self.K_tot, delta_lim=self.attractor_lim, K_mean=self.K_mean)
-                print('delta_inc')
-                print(delta_inc)
-                print("dK_inc")
-                print(dK_inc)
+                # print('delta_inc')
+                # print(delta_inc)
+                # print("dK_inc")
+                # print(dK_inc)
                 is_uncertain=self.Delta.is_uncertain(theta=self.theta)
                 self.Delta.update_with_k(x=cart_pos, mu=self.delta, epsilon_mu=delta_inc, is_uncertain=is_uncertain)
                 self.Stiffness.update_with_k(x=cart_pos, mu=self.dK, epsilon_mu=dK_inc, is_uncertain=is_uncertain)
-        
-            
+                        
             self.delta, self.K_tot = Force2Impedance(self.delta, self.K_tot, f_stable, self.attractor_lim)
             self.K_tot=[self.K_tot]
             self.scaling_factor = (1- self.sigma / self.Delta.max_var) / (1 - self.theta_stiffness)
@@ -276,4 +307,6 @@ class ILoSA(Panda):
                 print("Scaling_factor_cartesian:" + str(self.scaling_factor))
                 print("Scaling_factor_nullspace:" + str(self.scaling_factor_ns))   
             r.sleep()
+
+
     
