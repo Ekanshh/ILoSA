@@ -36,8 +36,8 @@ class Panda():
         self.listener.start()
 
         # Store initial orientation
-        self.initial_orientation = []
-        self.is_initial_orientation_found = False
+        self.initial_orientation = [0.5868, -0.5011, 0.4865, -0.4097]
+        self.is_initial_orientation_found = True
 
     def _on_press(self, key):
         # This function runs on the background and checks if a keyboard key was pressed
@@ -63,9 +63,14 @@ class Panda():
         distance = np.linalg.norm(np.array(goal_pos) - np.array(current_pos))
         
         if distance < threshold:
-            rospy.loginfo(f"Goal reached. Difference between current pos and goal pos: {distance}\n")
+            rospy.loginfo(f"Goal pos:= {goal_pos}")
+            rospy.loginfo(f"Current pos:= {current_pos}")
+            rospy.loginfo(f"Goal reached within threshold limit. Remaining distance between current pos and goal pos: {distance}\n")
             return True
         else:
+            rospy.loginfo(f"Goal pos:= {goal_pos}")
+            rospy.loginfo(f"Current pos:= {current_pos}")
+            rospy.loginfo(f"Remaining distance between current pos and goal pos: {distance}\n")
             return False     
         
     def ee_pose_callback(self, data):
@@ -77,6 +82,7 @@ class Panda():
             rospy.loginfo(f"Initial orientation: {self.initial_orientation}\n")
             self.is_initial_orientation_found = True
         else:
+            rospy.loginfo_once(f"Initial orientation: {self.initial_orientation}\n")
             pass
 
     # joint angle subscriber
