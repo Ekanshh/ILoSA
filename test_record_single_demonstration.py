@@ -8,13 +8,6 @@ if __name__ == '__main__':
     ILoSA=ILoSA()
     ILoSA.connect_ROS()
     time.sleep(5)
- 
-    print("Recording of Nullspace contraints")
-    ILoSA.Record_NullSpace()
-     
-    time.sleep(1)
-    print("Reset to the starting cartesian position")
-    ILoSA.go_to_3d(ILoSA.nullspace_traj[:, 0])    
 
     time.sleep(1)
     print("Record of the cartesian trajectory")
