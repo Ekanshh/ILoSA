@@ -204,7 +204,7 @@ class ILoSA(Panda):
             alpha[i]=self.max_grad_force/ np.sqrt(dSigma_dx**2+dSigma_dy**2+dSigma_dz**2)
             self.alpha=np.min(alpha)
 
-    def Interactive_Control(self, verboose=True, testing=False):
+    def Interactive_Control(self, default_pos, verboose=True, testing=False):
         rospy.loginfo(f"[ILoSA][interactive_control] Starting interactive control..")
         # Initialize rospy rate
         r=rospy.Rate(self.control_freq)
@@ -227,21 +227,27 @@ class ILoSA(Panda):
                         rospy.loginfo(f"START TIME: {start_time}")
 
                     # Monitor goal position reached
-                    is_goal_reached = self.check_goal_reached(threshold=0.01)
+                    is_goal_reached = self.check_goal_reached(goal_pos=[0.8180834107550724, 0.025080543921986533, 0.45832350734821834],
+                                                                threshold=0.012)
                                     
                     if is_goal_reached and counter <= counter_threshold:
                         rospy.loginfo("[ILoSA][interactive_control] Goal position reached. Restarting Interactive control demonstrations.")
                         rospy.sleep(2.0)
                         print("[ILoSA][interactive_control] Reset to the starting cartesian position.")
-                        self.go_to_3d(self.training_traj[:, 0])
+                        # self.go_to_3d(self.training_traj[:, 0])
+                        rospy.sleep(1.0)
+                        self.go_to_3d(default_pos)
                         rospy.sleep(1.0)
                         counter += 1
                         successful_runs += 1
+                        start_timer_flag = True
                     elif is_goal_reached and counter > counter_threshold :
                         rospy.loginfo(f"[ILoSA][interactive_control] Goal position reached and counter is at maximum!")
                         rospy.sleep(2.0)
                         print("[ILoSA][interactive_control] Reset to the starting cartesian position.")
-                        self.go_to_3d(self.training_traj[:, 0])
+                        # self.go_to_3d(self.training_traj[:, 0])
+                        rospy.sleep(1.0)
+                        self.go_to_3d(default_pos)
                         rospy.loginfo(f"[ILoSA][interactive_control] Stopping interactive control demonstrations.")
                         rospy.sleep(1.0)
                         # successful_runs += 1
@@ -251,7 +257,9 @@ class ILoSA(Panda):
                         rospy.loginfo(f"[ILoSA][interactive_control] Goal not reached and counter is at maximum!")
                         rospy.sleep(2.0)
                         print("[ILoSA][interactive_control] Reset to the starting cartesian position.")
-                        self.go_to_3d(self.training_traj[:, 0])
+                        # self.go_to_3d(self.training_traj[:, 0])
+                        rospy.sleep(1.0)
+                        self.go_to_3d(default_pos)
                         rospy.loginfo(f"[ILoSA][interactive_control] Stopping interactive control demonstrations.")
                         rospy.sleep(1.0)
                         # failed_runs += 1
@@ -260,33 +268,38 @@ class ILoSA(Panda):
                     else:
                         rospy.loginfo(f"[ILoSA][interactive_control] Trying to reach goal position .. ")
                         current_time = rospy.Time.now().to_sec()
-                        if abs(start_time - current_time) > 15.0:
+                        difference_in_time = abs(start_time - current_time)
+                        if difference_in_time > 10.0:
                             rospy.loginfo(f"[ILoSA][interactive_control] Reached maximum time limit.")
                             failed_runs += 1
                             rospy.sleep(2.0)
                             print("[ILoSA][interactive_control] Reset to the starting cartesian position.")
-                            self.go_to_3d(self.training_traj[:, 0])
+                            # self.go_to_3d(self.training_traj[:, 0])
+                            rospy.sleep(1.0)
+                            self.go_to_3d(default_pos)
                             rospy.sleep(1.0)
                             counter += 1
                             start_timer_flag = True
                         else:
-                            rospy.loginfo(f"Number of runs: {counter} Time elapsed: {abs(start_time - current_time)}")
+                            rospy.loginfo(f"Number of runs: {counter} Time elapsed: {difference_in_time}")
                             pass
                 else:
                     # Monitor goal position reached
-                    is_goal_reached = self.check_goal_reached(threshold=0.01)
+                    is_goal_reached = self.check_goal_reached(threshold=0.015)
 
                     if is_goal_reached:
                         rospy.loginfo(f"[ILoSA][interactive_control] Goal reached")
                         rospy.sleep(2.0)
                         rospy.loginfo(f"[ILoSA][interactive_control] Saving new data")
-                        self.save(data="last_with_user_correction_2")
+                        self.save(data="last_uc_new")
                         rospy.sleep(1.0)
                         rospy.loginfo(f"[ILoSA][interactive_control] Saving new models")
-                        self.save_models(data="_uc_2")
+                        self.save_models(data="_uc_new")
                         rospy.sleep(1.0)
                         print("[ILoSA][interactive_control] Reset to the starting cartesian position.")
-                        self.go_to_3d(self.training_traj[:, 0])
+                        # self.go_to_3d(self.training_traj[:, 0])
+                        rospy.sleep(1.0)
+                        self.go_to_3d(default_pos)
                         rospy.loginfo(f"[ILoSA][interactive_control] Stopping interactive control demonstrations.")
                         rospy.sleep(1.0)
                         break
@@ -330,8 +343,10 @@ class ILoSA(Panda):
                     self.K_tot=self.K_tot*self.scaling_factor
                 rospy.loginfo(f"[ILoSA][interactive_corrections] Current pos: {cart_pos}")
                 x_new = cart_pos[0][0] + self.delta[0]  
-                y_new = cart_pos[0][1] + self.delta[1]  
-                z_new = cart_pos[0][2] + self.delta[2]  
+                # y_new = cart_pos[0][1] + self.delta[1]
+                y_new = default_pos[1]  
+                # z_new = cart_pos[0][2] + self.delta[2]  
+                z_new = default_pos[2]
                 quat_goal=self.initial_orientation    # TODO: Hard-coded orientation, might need to change for our use-case
                 pos_goal=[x_new, y_new, z_new]
                 rospy.loginfo(f"[ILoSA][interactive_corrections] Next pos: {pos_goal}")
