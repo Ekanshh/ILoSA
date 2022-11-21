@@ -26,7 +26,7 @@ if __name__ == '__main__':
     ILoSA.go_to_3d(ILoSA.training_traj[:, 0])
 
     time.sleep(1)
-    ILoSA.Interactive_Control(verboose=False)
+    ILoSA.Interactive_Control(verboose=False, default_pos=ILoSA.training_traj[:, 0])
     
     
 
