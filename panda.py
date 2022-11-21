@@ -12,7 +12,7 @@ import time
 import pandas as pd
 from sensor_msgs.msg import JointState, Joy
 from geometry_msgs.msg import Point, WrenchStamped, PoseStamped, Vector3
-from std_msgs.msg import Float32MultiArray
+from std_msgs.msg import Float32MultiArray, String
 from sys import exit
 
 from pynput.keyboard import Listener, KeyCode
@@ -36,8 +36,9 @@ class Panda():
         self.listener.start()
 
         # Store initial orientation
-        self.initial_orientation = [0.5868, -0.5011, 0.4865, -0.4097]
-        self.is_initial_orientation_found = True
+        self.initial_orientation = None
+        self.is_initial_orientation_found = False
+        self.counter = 0
 
     def _on_press(self, key):
         # This function runs on the background and checks if a keyboard key was pressed
@@ -115,10 +116,24 @@ class Panda():
         rospy.Subscriber("/spacenav/joy", Joy, self.btns_callback)
         rospy.Subscriber("/joint_states", JointState, self.joint_callback)
         rospy.Subscriber("/joint_states", JointState, self.gripper_callback)
-
+        self.record_data_pub = rospy.Publisher("/record_wrench_data/event_in", String, queue_size=0)
         self.goal_pub  = rospy.Publisher('/equilibrium_pose', PoseStamped, queue_size=0)
         self.stiff_pub = rospy.Publisher('/stiffness', Float32MultiArray, queue_size=0)
         self.configuration_pub = rospy.Publisher("/equilibrium_configuration",Float32MultiArray, queue_size=0)
+
+    def record_wrench_data(self, time_lapsed):
+        if time_lapsed >= 10.0 and time_lapsed <= 20.0 and self.counter == 0:
+            data_msg = String()
+            data_msg.data = "e_start_left"
+            self.record_data_pub.publish(data_msg)  
+            self.counter += 1
+        elif time_lapsed > 20.0 and self.counter == 1:
+            data_msg = String()
+            data_msg.data = "e_stop"
+            self.record_data_pub.publish(data_msg)  
+            self.counter += 1
+        else:
+            pass
 
     def set_stiffness(self,pos_stiff,rot_stiff,null_stiff):
         stiff_des = Float32MultiArray()

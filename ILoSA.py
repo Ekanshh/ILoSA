@@ -5,6 +5,8 @@ Cognitive Robotics, TU Delft
 This code is part of TERI (TEaching Robots Interactively) project
 """
 #!/usr/bin/env python
+import rospy
+
 import numpy as np
 import pandas as pd
 from gaussian_process import *
@@ -212,7 +214,7 @@ class ILoSA(Panda):
         self.find_alpha()
         # Counter to repeate the interactive control loop
         counter = 1
-        counter_threshold = 20
+        counter_threshold = 10
         start_timer_flag = True
         successful_runs = 0
         failed_runs = 0
@@ -227,8 +229,7 @@ class ILoSA(Panda):
                         rospy.loginfo(f"START TIME: {start_time}")
 
                     # Monitor goal position reached
-                    is_goal_reached = self.check_goal_reached(goal_pos=[0.8180834107550724, 0.025080543921986533, 0.45832350734821834],
-                                                                threshold=0.012)
+                    is_goal_reached = self.check_goal_reached(threshold=0.012)
                                     
                     if is_goal_reached and counter <= counter_threshold:
                         rospy.loginfo("[ILoSA][interactive_control] Goal position reached. Restarting Interactive control demonstrations.")
@@ -269,7 +270,7 @@ class ILoSA(Panda):
                         rospy.loginfo(f"[ILoSA][interactive_control] Trying to reach goal position .. ")
                         current_time = rospy.Time.now().to_sec()
                         difference_in_time = abs(start_time - current_time)
-                        if difference_in_time > 10.0:
+                        if difference_in_time > 30.0:
                             rospy.loginfo(f"[ILoSA][interactive_control] Reached maximum time limit.")
                             failed_runs += 1
                             rospy.sleep(2.0)
@@ -280,8 +281,10 @@ class ILoSA(Panda):
                             rospy.sleep(1.0)
                             counter += 1
                             start_timer_flag = True
+                            self.counter = 0
                         else:
                             rospy.loginfo(f"Number of runs: {counter} Time elapsed: {difference_in_time}")
+                            self.record_wrench_data(difference_in_time)
                             pass
                 else:
                     # Monitor goal position reached
@@ -343,10 +346,10 @@ class ILoSA(Panda):
                     self.K_tot=self.K_tot*self.scaling_factor
                 rospy.loginfo(f"[ILoSA][interactive_corrections] Current pos: {cart_pos}")
                 x_new = cart_pos[0][0] + self.delta[0]  
-                # y_new = cart_pos[0][1] + self.delta[1]
-                y_new = default_pos[1]  
-                # z_new = cart_pos[0][2] + self.delta[2]  
-                z_new = default_pos[2]
+                y_new = cart_pos[0][1] + self.delta[1]
+                # y_new = default_pos[1]  
+                z_new = cart_pos[0][2] + self.delta[2]  
+                # z_new = default_pos[2]
                 quat_goal=self.initial_orientation    # TODO: Hard-coded orientation, might need to change for our use-case
                 pos_goal=[x_new, y_new, z_new]
                 rospy.loginfo(f"[ILoSA][interactive_corrections] Next pos: {pos_goal}")
