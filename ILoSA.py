@@ -53,6 +53,12 @@ class ILoSA(Panda):
 
         self.NullSpaceControl=None
 
+        # Recovery
+        self.stuck_counter = 0
+        self.feedback_counter = 0
+        self.prev_pos_goal = np.zeros(3,)
+        self.next_pos_goal = np.zeros(3,)
+
     def Record_NullSpace(self):
         self.Kinesthetic_Demonstration()
         print('Recording ended.')
@@ -214,7 +220,7 @@ class ILoSA(Panda):
         self.find_alpha()
         # Counter to repeate the interactive control loop
         counter = 1
-        counter_threshold = 10
+        counter_threshold = 30
         start_timer_flag = True
         successful_runs = 0
         failed_runs = 0
@@ -229,11 +235,17 @@ class ILoSA(Panda):
                         rospy.loginfo(f"START TIME: {start_time}")
 
                     # Monitor goal position reached
-                    is_goal_reached = self.check_goal_reached(threshold=0.012)
+                    is_goal_reached = self.check_goal_reached(threshold=0.010)
                                     
                     if is_goal_reached and counter <= counter_threshold:
                         rospy.loginfo("[ILoSA][interactive_control] Goal position reached. Restarting Interactive control demonstrations.")
                         rospy.sleep(2.0)
+                        self.feedback_counter = 0
+                        self.Clear_Training_Data()
+                        rospy.sleep(1.0)
+                        self.load(file='last_uc_new')
+                        rospy.sleep(1.0)
+                        self.load_models(data='_uc_new')
                         print("[ILoSA][interactive_control] Reset to the starting cartesian position.")
                         # self.go_to_3d(self.training_traj[:, 0])
                         rospy.sleep(1.0)
@@ -245,6 +257,12 @@ class ILoSA(Panda):
                     elif is_goal_reached and counter > counter_threshold :
                         rospy.loginfo(f"[ILoSA][interactive_control] Goal position reached and counter is at maximum!")
                         rospy.sleep(2.0)
+                        self.feedback_counter = 0
+                        self.Clear_Training_Data()
+                        rospy.sleep(1.0)
+                        self.load(file='last_uc_new')
+                        rospy.sleep(1.0)
+                        self.load_models(data='_uc_new')
                         print("[ILoSA][interactive_control] Reset to the starting cartesian position.")
                         # self.go_to_3d(self.training_traj[:, 0])
                         rospy.sleep(1.0)
@@ -257,6 +275,12 @@ class ILoSA(Panda):
                     elif not is_goal_reached and counter > counter_threshold:
                         rospy.loginfo(f"[ILoSA][interactive_control] Goal not reached and counter is at maximum!")
                         rospy.sleep(2.0)
+                        self.feedback_counter = 0
+                        self.Clear_Training_Data()
+                        rospy.sleep(1.0)
+                        self.load(file='last_uc_new')
+                        rospy.sleep(1.0)
+                        self.load_models(data='_uc_new')
                         print("[ILoSA][interactive_control] Reset to the starting cartesian position.")
                         # self.go_to_3d(self.training_traj[:, 0])
                         rospy.sleep(1.0)
@@ -274,6 +298,12 @@ class ILoSA(Panda):
                             rospy.loginfo(f"[ILoSA][interactive_control] Reached maximum time limit.")
                             failed_runs += 1
                             rospy.sleep(2.0)
+                            self.feedback_counter = 0
+                            self.Clear_Training_Data()
+                            rospy.sleep(1.0)
+                            self.load(file='last_uc_new')
+                            rospy.sleep(1.0)
+                            self.load_models(data='_uc_new')
                             print("[ILoSA][interactive_control] Reset to the starting cartesian position.")
                             # self.go_to_3d(self.training_traj[:, 0])
                             rospy.sleep(1.0)
@@ -288,16 +318,17 @@ class ILoSA(Panda):
                             pass
                 else:
                     # Monitor goal position reached
-                    is_goal_reached = self.check_goal_reached(threshold=0.015)
+                    is_goal_reached = self.check_goal_reached(threshold=0.010)
 
                     if is_goal_reached:
                         rospy.loginfo(f"[ILoSA][interactive_control] Goal reached")
                         rospy.sleep(2.0)
+                        self.feedback_counter = 0
                         rospy.loginfo(f"[ILoSA][interactive_control] Saving new data")
-                        self.save(data="last_uc_new")
+                        self.save(data="last_uc_new_1")
                         rospy.sleep(1.0)
                         rospy.loginfo(f"[ILoSA][interactive_control] Saving new models")
-                        self.save_models(data="_uc_new")
+                        self.save_models(data="_uc_new_1")
                         rospy.sleep(1.0)
                         print("[ILoSA][interactive_control] Reset to the starting cartesian position.")
                         # self.go_to_3d(self.training_traj[:, 0])
@@ -332,12 +363,12 @@ class ILoSA(Panda):
 
                 
                 if any(abs(np.array(self.feedback)) > 0.05): # Check for joystick feedback 
-                    
-                    rospy.loginfo(f"[ILoSA][interactive_control] Received user feedback")
-                    delta_inc, dK_inc = Interpret_3D(feedback=self.feedback, delta=self.delta, K=self.K_tot, delta_lim=self.attractor_lim, K_mean=self.K_mean)
-                    is_uncertain=self.Delta.is_uncertain(theta=self.theta)
-                    self.Delta.update_with_k(x=cart_pos, mu=self.delta, epsilon_mu=delta_inc, is_uncertain=is_uncertain)
-                    self.Stiffness.update_with_k(x=cart_pos, mu=self.dK, epsilon_mu=dK_inc, is_uncertain=is_uncertain)
+                    if self.feedback_counter <0:
+                        rospy.loginfo(f"[ILoSA][interactive_control] Received user feedback")
+                        delta_inc, dK_inc = Interpret_3D(feedback=self.feedback, delta=self.delta, K=self.K_tot, delta_lim=self.attractor_lim, K_mean=self.K_mean)
+                        is_uncertain=self.Delta.is_uncertain(theta=self.theta)
+                        self.Delta.update_with_k(x=cart_pos, mu=self.delta, epsilon_mu=delta_inc, is_uncertain=is_uncertain)
+                        self.Stiffness.update_with_k(x=cart_pos, mu=self.dK, epsilon_mu=dK_inc, is_uncertain=is_uncertain)
                             
                 self.delta, self.K_tot = Force2Impedance(self.delta, self.K_tot, f_stable, self.attractor_lim)
                 self.K_tot=[self.K_tot]
@@ -352,7 +383,21 @@ class ILoSA(Panda):
                 # z_new = default_pos[2]
                 quat_goal=self.initial_orientation    # TODO: Hard-coded orientation, might need to change for our use-case
                 pos_goal=[x_new, y_new, z_new]
+                self.next_pos_goal = np.array(pos_goal)
                 rospy.loginfo(f"[ILoSA][interactive_corrections] Next pos: {pos_goal}")
+
+                # Check if the end-effector is not stuck
+                if np.allclose(self.prev_pos_goal, self.next_pos_goal, rtol=1e-05, atol=1e-07):
+                    self.stuck_counter += 1
+                    rospy.loginfo(f"End-effector may be stuck...")
+                    if self.stuck_counter > 5:
+                        rospy.logerr(f"End-effector is stuck...")
+                        self.stuck_counter = 0
+                        self.feedback = [0.1, 0.055, 0.]
+                        self.feedback_counter += 1
+                else:
+                    self.prev_pos_goal = self.next_pos_goal
+
                 self.set_attractor(pos_goal,quat_goal)
 
                 null_stiff = [0]
@@ -369,6 +414,15 @@ class ILoSA(Panda):
                     null_stiff = [self.null_stiff]
                 
                 pos_stiff = [self.K_tot[0][0],self.K_tot[0][1],self.K_tot[0][2]]
+
+                if max(pos_stiff) > 600:
+                    if pos_stiff[0] > 600:
+                        pos_stiff[0] = 600
+                    if pos_stiff[1] > 600:
+                        pos_stiff[1] = 600
+                    if pos_stiff[2] > 600:
+                        pos_stiff[2] = 600
+
                 rot_stiff = [self.K_ori, self.K_ori, self.K_ori]
                 self.set_stiffness(pos_stiff, rot_stiff, null_stiff)
                 if verboose :
@@ -379,6 +433,7 @@ class ILoSA(Panda):
                     print("Scaling_factor_cartesian:" + str(self.scaling_factor))
                     print("Scaling_factor_nullspace:" + str(self.scaling_factor_ns))   
                 r.sleep()
+                
         except KeyboardInterrupt:
             rospy.logwarn(f"Keyboard Interrupt!")
             rospy.logwarn(f"Stopping....")
