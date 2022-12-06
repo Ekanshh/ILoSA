@@ -14,6 +14,7 @@ from panda import *
 from utils import *
 from data_prep import *
 import pickle
+import pdb
 # class for storing different data types into one variable
 class Struct:
     pass
@@ -220,12 +221,16 @@ class ILoSA(Panda):
         self.find_alpha()
         # Counter to repeate the interactive control loop
         counter = 1
-        counter_threshold = 30
+        counter_threshold = 2
         start_timer_flag = True
         successful_runs = 0
         failed_runs = 0
+        threshold = 0.010
+        recovery = True
         try:
             while True:       
+                
+                # pdb.set_trace()
 
                 if testing: 
 
@@ -235,7 +240,7 @@ class ILoSA(Panda):
                         rospy.loginfo(f"START TIME: {start_time}")
 
                     # Monitor goal position reached
-                    is_goal_reached = self.check_goal_reached(threshold=0.010)
+                    is_goal_reached = self.check_goal_reached(threshold=threshold)
                                     
                     if is_goal_reached and counter <= counter_threshold:
                         rospy.loginfo("[ILoSA][interactive_control] Goal position reached. Restarting Interactive control demonstrations.")
@@ -254,6 +259,7 @@ class ILoSA(Panda):
                         counter += 1
                         successful_runs += 1
                         start_timer_flag = True
+                        self.feedback = []
                     elif is_goal_reached and counter > counter_threshold :
                         rospy.loginfo(f"[ILoSA][interactive_control] Goal position reached and counter is at maximum!")
                         rospy.sleep(2.0)
@@ -271,6 +277,7 @@ class ILoSA(Panda):
                         rospy.sleep(1.0)
                         # successful_runs += 1
                         rospy.loginfo(f"[ILoSA][interactive_control] Goal reached evaluation metrics: Total Runs: {counter_threshold} Successful Reached Goal: {successful_runs} Failed to reach Goal: {failed_runs}")
+                        self.feedback = []
                         break
                     elif not is_goal_reached and counter > counter_threshold:
                         rospy.loginfo(f"[ILoSA][interactive_control] Goal not reached and counter is at maximum!")
@@ -289,6 +296,7 @@ class ILoSA(Panda):
                         rospy.sleep(1.0)
                         # failed_runs += 1
                         rospy.loginfo(f"[ILoSA][interactive_control] Goal reached evaluation metrics: Total Runs: {counter_threshold} Successful Reached Goal: {successful_runs} Failed to reach Goal: {failed_runs}")
+                        self.feedback = []
                         break
                     else:
                         rospy.loginfo(f"[ILoSA][interactive_control] Trying to reach goal position .. ")
@@ -312,9 +320,10 @@ class ILoSA(Panda):
                             counter += 1
                             start_timer_flag = True
                             self.counter = 0
+                            self.feedback = []
                         else:
                             rospy.loginfo(f"Number of runs: {counter} Time elapsed: {difference_in_time}")
-                            self.record_wrench_data(difference_in_time)
+                            # self.record_wrench_data(difference_in_time)
                             pass
                 else:
                     # Monitor goal position reached
@@ -336,6 +345,7 @@ class ILoSA(Panda):
                         self.go_to_3d(default_pos)
                         rospy.loginfo(f"[ILoSA][interactive_control] Stopping interactive control demonstrations.")
                         rospy.sleep(1.0)
+                        self.feedback = []
                         break
                     else:
                         rospy.loginfo(f"[ILoSA][interactive_control] Goal not reached. User corrections needed...")
@@ -363,13 +373,12 @@ class ILoSA(Panda):
 
                 
                 if any(abs(np.array(self.feedback)) > 0.05): # Check for joystick feedback 
-                    if self.feedback_counter <0:
-                        rospy.loginfo(f"[ILoSA][interactive_control] Received user feedback")
-                        delta_inc, dK_inc = Interpret_3D(feedback=self.feedback, delta=self.delta, K=self.K_tot, delta_lim=self.attractor_lim, K_mean=self.K_mean)
-                        is_uncertain=self.Delta.is_uncertain(theta=self.theta)
-                        self.Delta.update_with_k(x=cart_pos, mu=self.delta, epsilon_mu=delta_inc, is_uncertain=is_uncertain)
-                        self.Stiffness.update_with_k(x=cart_pos, mu=self.dK, epsilon_mu=dK_inc, is_uncertain=is_uncertain)
-                            
+                    rospy.loginfo(f"[ILoSA][interactive_control] Received user feedback")
+                    delta_inc, dK_inc = Interpret_3D(feedback=self.feedback, delta=self.delta, K=self.K_tot, delta_lim=self.attractor_lim, K_mean=self.K_mean)
+                    is_uncertain=self.Delta.is_uncertain(theta=self.theta)
+                    self.Delta.update_with_k(x=cart_pos, mu=self.delta, epsilon_mu=delta_inc, is_uncertain=is_uncertain)
+                    self.Stiffness.update_with_k(x=cart_pos, mu=self.dK, epsilon_mu=dK_inc, is_uncertain=is_uncertain)
+
                 self.delta, self.K_tot = Force2Impedance(self.delta, self.K_tot, f_stable, self.attractor_lim)
                 self.K_tot=[self.K_tot]
                 self.scaling_factor = (1- self.sigma / self.Delta.max_var) / (1 - self.theta_stiffness)
@@ -387,16 +396,31 @@ class ILoSA(Panda):
                 rospy.loginfo(f"[ILoSA][interactive_corrections] Next pos: {pos_goal}")
 
                 # Check if the end-effector is not stuck
-                if np.allclose(self.prev_pos_goal, self.next_pos_goal, rtol=1e-05, atol=1e-07):
-                    self.stuck_counter += 1
-                    rospy.loginfo(f"End-effector may be stuck...")
-                    if self.stuck_counter > 5:
-                        rospy.logerr(f"End-effector is stuck...")
-                        self.stuck_counter = 0
-                        self.feedback = [0.1, 0.055, 0.]
-                        self.feedback_counter += 1
-                else:
-                    self.prev_pos_goal = self.next_pos_goal
+                if recovery:
+                    if np.allclose(self.prev_pos_goal, self.next_pos_goal, rtol=1e-05, atol=1e-07):
+                        self.stuck_counter += 1
+                        rospy.loginfo(f"End-effector may be stuck...")
+                        if self.stuck_counter > 5:
+                            rospy.logerr(f"End-effector is stuck...")
+                            self.record_wrench_data()
+                            msg = rospy.wait_for_message("/wrench_inference/side", String)
+                            self.contact_side = msg.data
+                            if self.contact_side == "right":
+                                self.stuck_counter = 0
+                                self.feedback = [0.1, 0.030, 0.]
+                                self.feedback_counter += 1
+                                self.contact_side = None
+                            elif self.contact_side == "left":
+                                self.stuck_counter = 0
+                                self.feedback = [0.12, -0.090, 0.]
+                                self.feedback_counter += 1
+                                self.contact_side = None
+                            else:
+                                print(self.contact_side)
+                                self.feedback = []
+                                rospy.sleep(1)
+                    else:
+                        self.prev_pos_goal = self.next_pos_goal
 
                 self.set_attractor(pos_goal,quat_goal)
 
