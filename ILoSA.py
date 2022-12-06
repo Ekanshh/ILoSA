@@ -14,7 +14,6 @@ from panda import *
 from utils import *
 from data_prep import *
 import pickle
-import pdb
 # class for storing different data types into one variable
 class Struct:
     pass
@@ -221,7 +220,7 @@ class ILoSA(Panda):
         self.find_alpha()
         # Counter to repeate the interactive control loop
         counter = 1
-        counter_threshold = 2
+        counter_threshold = 30
         start_timer_flag = True
         successful_runs = 0
         failed_runs = 0
@@ -230,8 +229,6 @@ class ILoSA(Panda):
         try:
             while True:       
                 
-                # pdb.set_trace()
-
                 if testing: 
 
                     if start_timer_flag == True:
