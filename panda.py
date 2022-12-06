@@ -39,12 +39,22 @@ class Panda():
         self.initial_orientation = None
         self.is_initial_orientation_found = False
         self.counter = 0
+        self.contact_side = None
+        self.is_force_threshold_reached = False
 
     def _on_press(self, key):
         # This function runs on the background and checks if a keyboard key was pressed
         if key == KeyCode.from_char('e'):
             self.end = True
     
+    def force_feedback_callback(self, data):
+        force = [data.wrench.force.x, data.wrench.force.y, data.wrench.force.z]
+        if  abs(force[0]) > 9.0:
+            self.is_force_threshold_reached = True
+            rospy.loginfo(f"Force threshold exceeded. Maybe goal is reached.")
+        else:
+            self.is_force_threshold_reached = False
+
     def check_goal_reached(self, 
                             goal_pos=None, 
                             current_pos=None, 
@@ -62,11 +72,12 @@ class Panda():
         
         
         distance = np.linalg.norm(np.array(goal_pos) - np.array(current_pos))
-        
-        if distance < threshold:
+
+        if distance < threshold or self.is_force_threshold_reached:
             rospy.loginfo(f"Goal pos:= {goal_pos}")
             rospy.loginfo(f"Current pos:= {current_pos}")
             rospy.loginfo(f"Goal reached within threshold limit. Remaining distance between current pos and goal pos: {distance}\n")
+            self.is_force_threshold_reached = False
             return True
         else:
             rospy.loginfo(f"Goal pos:= {goal_pos}")
@@ -116,25 +127,42 @@ class Panda():
         rospy.Subscriber("/spacenav/joy", Joy, self.btns_callback)
         rospy.Subscriber("/joint_states", JointState, self.joint_callback)
         rospy.Subscriber("/joint_states", JointState, self.gripper_callback)
+        rospy.Subscriber("/franka_state_controller/F_ext", WrenchStamped, self.force_feedback_callback)
+        # rospy.Subscriber("/wrench_inference/side", String, self.wrench_inference_callback)
         self.record_data_pub = rospy.Publisher("/record_wrench_data/event_in", String, queue_size=0)
         self.goal_pub  = rospy.Publisher('/equilibrium_pose', PoseStamped, queue_size=0)
         self.stiff_pub = rospy.Publisher('/stiffness', Float32MultiArray, queue_size=0)
         self.configuration_pub = rospy.Publisher("/equilibrium_configuration",Float32MultiArray, queue_size=0)
+    
+    def wrench_inference_callback(self, msg):
+        self.contact_side = msg.data
+        rospy.loginfo(f"Prediction: {self.contact_side}")
 
-    def record_wrench_data(self, time_lapsed):
-        if time_lapsed >= 10.0 and time_lapsed <= 20.0 and self.counter == 0:
-            data_msg = String()
-            data_msg.data = "e_start_left"
-            self.record_data_pub.publish(data_msg)  
-            self.counter += 1
-        elif time_lapsed > 20.0 and self.counter == 1:
-            data_msg = String()
-            data_msg.data = "e_stop"
-            self.record_data_pub.publish(data_msg)  
-            self.counter += 1
-        else:
-            pass
+    # def record_wrench_data(self, time_lapsed):
+    #     if time_lapsed >= 10.0 and time_lapsed <= 20.0 and self.counter == 0:
+    #         data_msg = String()
+    #         data_msg.data = "e_start"
+    #         self.record_data_pub.publish(data_msg)  
+    #         self.counter += 1
+    #     elif time_lapsed > 20.0 and self.counter == 1:
+    #         data_msg = String()
+    #         data_msg.data = "e_stop"
+    #         self.record_data_pub.publish(data_msg)  
+    #         self.counter += 1
+    #     else:
+    #         pass
 
+    def record_wrench_data(self,):
+        
+        data_msg = String()
+        data_msg.data = "e_start"
+        self.record_data_pub.publish(data_msg)  
+        rospy.sleep(10.0)
+        data_msg = String()
+        data_msg.data = "e_stop"
+        self.record_data_pub.publish(data_msg)  
+        self.counter += 1
+        
     def set_stiffness(self,pos_stiff,rot_stiff,null_stiff):
         stiff_des = Float32MultiArray()
         stiff_des.data = np.array([pos_stiff[0], pos_stiff[1], pos_stiff[2], rot_stiff[0], rot_stiff[1], rot_stiff[2], null_stiff[0]]).astype(np.float32)
